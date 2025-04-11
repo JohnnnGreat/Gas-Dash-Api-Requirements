@@ -122,6 +122,9 @@
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     last_login TIMESTAMP WITH TIME ZONE,
     status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'suspended', 'deleted'))
+    user_type VARCHAR(20) DEFAULT 'customer' CHECK (status IN ('wholesaler', 'driver', 'filling_station'))
+    profile_picture_url VARCHAR(255),
+    
 );
 
 CREATE INDEX idx_users_email ON users(email);
