@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <meta
+      name="description"
+      content="Backend requirements documentation for Gas Delivery Application order management system"
+    />
+
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+
+    <link rel="canonical" href="https://yourdomain.com/docs/orders.html" />
+    <title>Gas Delivery App - Order Management</title>
+    <style>
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        line-height: 1.6;
+        color: #333;
+        max-width: 1000px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      h1,
+      h2,
+      h3 {
+        color: #00246b;
+      }
+      h1 {
+        border-bottom: 2px solid #ff6b00;
+        padding-bottom: 10px;
+      }
+      h2 {
+        margin-top: 30px;
+        border-left: 4px solid #ff6b00;
+        padding-left: 10px;
+      }
+      h3 {
+        margin-top: 20px;
+      }
+      code {
+        background-color: #f6f8fa;
+        padding: 2px 4px;
+        border-radius: 4px;
+        font-family: "Courier New", Courier, monospace;
+      }
+      pre {
+        background-color: #f6f8fa;
+        padding: 15px;
+        border-radius: 6px;
+        overflow-x: auto;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 20px 0;
+      }
+      th,
+      td {
+        border: 1px solid #ddd;
+        padding: 12px;
+        text-align: left;
+      }
+      th {
+        background-color: #f6faff;
+      }
+      .endpoint {
+        background-color: #f6faff;
+        padding: 15px;
+        border-radius: 6px;
+        margin-bottom: 20px;
+      }
+      .method {
+        display: inline-block;
+        padding: 3px 10px;
+        border-radius: 3px;
+        font-weight: bold;
+        margin-right: 10px;
+      }
+      .get {
+        background-color: #61affe;
+        color: white;
+      }
+      .post {
+        background-color: #49cc90;
+        color: white;
+      }
+      .put {
+        background-color: #fca130;
+        color: white;
+      }
+      .delete {
+        background-color: #f93e3e;
+        color: white;
+      }
+      .note {
+        background-color: #e7f5ff;
+        border-left: 4px solid #0286ff;
+        padding: 10px;
+        margin: 15px 0;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Gas Delivery Application - Order Management System</h1>
+    <p><strong>Date:</strong> April 26, 2025</p>
+    <p><strong>Version:</strong> 1.0</p>
+
+    <div class="note">
+      <p>
+        This document outlines the backend requirements for the gas delivery
+        mobile application's order management system, including database schema,
+        API endpoints, and technical specifications.
+      </p>
+    </div>
+
+    <h2>1. Database Schema</h2>
+
+    <h3>1.1 Orders Table</h3>
+    <pre><code>CREATE TABLE orders (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    cylinder_size VARCHAR(50) NOT NULL,
+    cylinder_type VARCHAR(50) NOT NULL,
+    refill_quantity INTEGER NOT NULL,
+    email VARCHAR(100),
+    phone_number VARCHAR(20),
+    total_cost DECIMAL(10, 2) NOT NULL,
+    cylinder_per_kg_cost DECIMAL(10, 2) NOT NULL,
+    transportation_cost DECIMAL(10, 2) NOT NULL,
+    total_cylinder_perkg_cost DECIMAL(10, 2) NOT NULL,
+    customer_agreed BOOLEAN DEFAULT FALSE,
+    tracking_id VARCHAR(100) UNIQUE,
+    completed BOOLEAN DEFAULT FALSE,
+    order_type VARCHAR(20) CHECK (order_type IN ('cylinder_refill', 'cylinder_purchase')),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_orders_user_id ON orders(user_id);
+CREATE INDEX idx_orders_tracking_id ON orders(tracking_id);</code></pre>
+
+    <h3>1.2 Locations Table</h3>
+    <pre><code>CREATE TABLE locations (
+    id SERIAL PRIMARY KEY,
+    order_id INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+    location_type VARCHAR(20) CHECK (location_type IN ('pickup', 'delivery')),
+    longitude DECIMAL(10, 6) NOT NULL,
+    latitude DECIMAL(10, 6) NOT NULL,
+    address TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_locations_order_id ON locations(order_id);</code></pre>
+
+    <h3>1.3 Cylinder Orders Table</h3>
+    <pre><code>CREATE TABLE cylinder_orders (
+    id SERIAL PRIMARY KEY,
+    order_id INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+    cylinder_id VARCHAR(100) NOT NULL,
+    quantity INTEGER NOT NULL,
+    refill_quantity INTEGER NOT NULL,
+    cylinder_image VARCHAR(255),
+    cylinder_size VARCHAR(50) NOT NULL,
+    cylinder_price DECIMAL(10, 2) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_cylinder_orders_order_id ON cylinder_orders(order_id);</code></pre>
+
+    <h3>1.4 Order Status Table</h3>
+    <pre><code>CREATE TABLE order_status (
+    id SERIAL PRIMARY KEY,
+    order_id INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+    status VARCHAR(50) NOT NULL,
+    timestamp TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_order_status_order_id ON order_status(order_id);</code></pre>
+
+    <h3>1.5 Cylinders Table</h3>
+    <pre><code>CREATE TABLE cylinders (
+    id VARCHAR(100) PRIMARY KEY,
+    size VARCHAR(50) NOT NULL,
+    type VARCHAR(50) NOT NULL,
+    price DECIMAL(10, 2) NOT NULL,
+    image_url VARCHAR(255),
+    available BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_cylinders_size_type ON cylinders(size, type);</code></pre>
+
+    <h2>2. API Endpoints</h2>
+
+    <h3>2.1 Order Management Endpoints</h3>
+
+    <div class="endpoint">
+      <div>
+        <span class="method post">POST</span>
+        <strong>/api/orders</strong>
+      </div>
+      <p><strong>Description:</strong> Create a new order</p>
+      <h4>Headers:</h4>
+      <pre><code>Authorization: Bearer &lt;token&gt;</code></pre>
+
+      <h4>Request:</h4>
+      <pre><code>{
+  "cylinderSize": "5kg",
+  "cylinderType": "Standard",
+  "refillQuantity": 2,
+  "pickupLocation": {
+    "longitude": 7.4951,
+    "latitude": 9.0579,
+    "address": "12 Park Avenue, Wuse"
+  },
+  "deliveryLocation": {
+    "longitude": 7.5009,
+    "latitude": 9.0765,
+    "address": "24 Ahmadu Bello Way, Garki"
+  },
+  "phoneNumber": "09012345678",
+  "email": "customer@example.com",
+  "totalPrice": {
+    "totalCost": 5000,
+    "cylinderPerKgCost": 800,
+    "transportationCost": 1000,
+    "totalCylinderPerkgCost": 4000
+  },
+  "cylinders": [
+    {
+      "cylinderId": "cyl-123456",
+      "quantity": 1,
+      "refillQuantity": 2,
+      "cylinderImage": "https://example.com/cylinder1.jpg",
+      "cylinderSize": "5kg",
+      "cylinderPrice": 4000
+    }
+  ],
+  "customerAgreed": true,
+  "orderType": "cylinder_refill"
+}</code></pre>
+
+      <h4>Response (Success - 201 Created):</h4>
+      <pre><code>{
+  "success": true,
+  "data": {
+    "id": "ord-123456",
+    "cylinderSize": "5kg",
+    "cylinderType": "Standard",
+    "refillQuantity": 2,
+    "pickupLocation": {
+      "longitude": 7.4951,
+      "latitude": 9.0579,
+      "address": "12 Park Avenue, Wuse"
+    },
+    "deliveryLocation": {
+      "longitude": 7.5009,
+      "latitude": 9.0765,
+      "address": "24 Ahmadu Bello Way, Garki"
+    },
+    "phoneNumber": "09012345678",
+    "email": "customer@example.com",
+    "totalPrice": {
+      "totalCost": 5000,
+      "cylinderPerKgCost": 800,
+      "transportationCost": 1000,
+      "totalCylinderPerkgCost": 4000
+    },
+    "cylinders": [
+      {
+        "cylinderId": "cyl-123456",
+        "quantity": 1,
+        "refillQuantity": 2,
+        "cylinderImage": "https://example.com/cylinder1.jpg",
+        "cylinderSize": "5kg",
+        "cylinderPrice": 4000
+      }
+    ],
+    "orderStatus": {
+      "orderStatus": "pending",
+      "orderId": "ord-123456",
+      "timeStamp": "2025-04-26T15:30:00Z"
+    },
+    "customerAgreed": true,
+    "trackingId": "TRK-123456",
+    "completed": false,
+    "orderType": "cylinder_refill",
+    "createdAt": "2025-04-26T15:30:00Z",
+    "updatedAt": "2025-04-26T15:30:00Z"
+  }
+}</code></pre>
+
+      <h4>Response (Error - 400 Bad Request):</h4>
+      <pre><code>{
+  "success": false,
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Invalid order data provided",
+    "details": {
+      "cylinderSize": "Cylinder size is required",
+      "refillQuantity": "Refill quantity must be greater than 0"
+    }
+  }
+}</code></pre>
+    </div>
+
+    <div class="endpoint">
+      <div>
+        <span class="method get">GET</span>
+        <strong>/api/orders</strong>
+      </div>
+      <p>
+        <strong>Description:</strong> Get all orders for the authenticated user
+      </p>
+      <h4>Headers:</h4>
+      <pre><code>Authorization: Bearer &lt;token&gt;</code></pre>
+
+      <h4>Query Parameters:</h4>
+      <pre><code>page=1&limit=10&status=pending&orderType=cylinder_refill</code></pre>
+
+      <h4>Response (Success - 200 OK):</h4>
+      <pre><code>{
+  "success": true,
+  "data": {
+    "orders": [
+      {
+        "id": "ord-123456",
+        "cylinderSize": "5kg",
+        "cylinderType": "Standard",
+        "refillQuantity": 2,
+        "pickupLocation": {
+          "longitude": 7.4951,
+          "latitude": 9.0579,
+          "address": "12 Park Avenue, Wuse"
+        },
+        "deliveryLocation": {
+          "longitude": 7.5009,
+          "latitude": 9.0765,
+          "address": "24 Ahmadu Bello Way, Garki"
+        },
+        "totalPrice": {
+          "totalCost": 5000,
+          "cylinderPerKgCost": 800,
+          "transportationCost": 1000,
+          "totalCylinderPerkgCost": 4000
+        },
+        "orderStatus": {
+          "orderStatus": "pending",
+          "orderId": "ord-123456",
+          "timeStamp": "2025-04-26T15:30:00Z"
+        },
+        "trackingId": "TRK-123456",
+        "completed": false,
+        "orderType": "cylinder_refill",
+        "createdAt": "2025-04-26T15:30:00Z"
+      }
+    ],
+    "pagination": {
+      "totalItems": 15,
+      "totalPages": 2,
+      "currentPage": 1,
+      "limit": 10
+    }
+  }
+}</code></pre>
+    </div>
+
+    <div class="endpoint">
+      <div>
+        <span class="method get">GET</span>
+        <strong>/api/orders/:id</strong>
+      </div>
+      <p><strong>Description:</strong> Get a specific order by ID</p>
+      <h4>Headers:</h4>
+      <pre><code>Authorization: Bearer &lt;token&gt;</code></pre>
+
+      <h4>Response (Success - 200 OK):</h4>
+      <pre><code>{
+  "success": true,
+  "data": {
+    "id": "ord-123456",
+    "cylinderSize": "5kg",
+    "cylinderType": "Standard",
+    "refillQuantity": 2,
+    "pickupLocation": {
+      "longitude": 7.4951,
+      "latitude": 9.0579,
+      "address": "12 Park Avenue, Wuse"
+    },
+    "deliveryLocation": {
+      "longitude": 7.5009,
+      "latitude": 9.0765,
+      "address": "24 Ahmadu Bello Way, Garki"
+    },
+    "phoneNumber": "09012345678",
+    "email": "customer@example.com",
+    "totalPrice": {
+      "totalCost": 5000,
+      "cylinderPerKgCost": 800,
+      "transportationCost": 1000,
+      "totalCylinderPerkgCost": 4000
+    },
+    "cylinders": [
+      {
+        "cylinderId": "cyl-123456",
+        "quantity": 1,
+        "refillQuantity": 2,
+        "cylinderImage": "https://example.com/cylinder1.jpg",
+        "cylinderSize": "5kg",
+        "cylinderPrice": 4000
+      }
+    ],
+    "orderStatus": {
+      "orderStatus": "pending",
+      "orderId": "ord-123456",
+      "timeStamp": "2025-04-26T15:30:00Z"
+    },
+    "customerAgreed": true,
+    "trackingId": "TRK-123456",
+    "completed": false,
+    "orderType": "cylinder_refill",
+    "createdAt": "2025-04-26T15:30:00Z",
+    "updatedAt": "2025-04-26T15:30:00Z"
+  }
+}</code></pre>
+
+      <h4>Response (Error - 404 Not Found):</h4>
+      <pre><code>{
+  "success": false,
+  "error": {
+    "code": "ORDER_NOT_FOUND",
+    "message": "Order with ID ord-123456 not found"
+  }
+}</code></pre>
+    </div>
+
+    <div class="endpoint">
+      <div>
+        <span class="method put">PUT</span>
+        <strong>/api/orders/:id</strong>
+      </div>
+      <p><strong>Description:</strong> Update an existing order</p>
+      <h4>Headers:</h4>
+      <pre><code>Authorization: Bearer &lt;token&gt;</code></pre>
+
+      <h4>Request:</h4>
+      <pre><code>{
+  "deliveryLocation": {
+    "longitude": 7.5100,
+    "latitude": 9.0800,
+    "address": "36 Ibrahim Babangida Way, Maitama"
+  },
+  "phoneNumber": "09098765432"
+}</code></pre>
+
+      <h4>Response (Success - 200 OK):</h4>
+      <pre><code>{
+  "success": true,
+  "data": {
+    "id": "ord-123456",
+    "cylinderSize": "5kg",
+    "cylinderType": "Standard",
+    "refillQuantity": 2,
+    "pickupLocation": {
+      "longitude": 7.4951,
+      "latitude": 9.0579,
+      "address": "12 Park Avenue, Wuse"
+    },
+    "deliveryLocation": {
+      "longitude": 7.5100,
+      "latitude": 9.0800,
+      "address": "36 Ibrahim Babangida Way, Maitama"
+    },
+    "phoneNumber": "09098765432",
+    "email": "customer@example.com",
+    "totalPrice": {
+      "totalCost": 5000,
+      "cylinderPerKgCost": 800,
+      "transportationCost": 1000,
+      "totalCylinderPerkgCost": 4000
+    },
+    "cylinders": [
+      {
+        "cylinderId": "cyl-123456",
+        "quantity": 1,
+        "refillQuantity": 2,
+        "cylinderImage": "https://example.com/cylinder1.jpg",
+        "cylinderSize": "5kg",
+        "cylinderPrice": 4000
+      }
+    ],
+    "orderStatus": {
+      "orderStatus": "pending",
+      "orderId": "ord-123456",
+      "timeStamp": "2025-04-26T15:30:00Z"
+    },
+    "customerAgreed": true,
+    "trackingId": "TRK-123456",
+    "completed": false,
+    "orderType": "cylinder_refill",
+    "updatedAt": "2025-04-26T16:15:00Z"
+  }
+}</code></pre>
+    </div>
+
+    <div class="endpoint">
+      <div>
+        <span class="method delete">DELETE</span>
+        <strong>/api/orders/:id</strong>
+      </div>
+      <p><strong>Description:</strong> Cancel an order</p>
+      <h4>Headers:</h4>
+      <pre><code>Authorization: Bearer &lt;token&gt;</code></pre>
+
+      <h4>Response (Success - 200 OK):</h4>
+      <pre><code>{
+  "success": true,
+  "data": {
+    "message": "Order successfully cancelled",
+    "id": "ord-123456"
+  }
+}</code></pre>
+    </div>
+
+    <h3>2.2 Order Status Endpoints</h3>
+
+    <div class="endpoint">
+      <div>
+        <span class="method post">POST</span>
+        <strong>/api/orders/:id/status</strong>
+      </div>
+      <p>
+        <strong>Description:</strong> Update order status (for authorized
+        personnel only)
+      </p>
+      <h4>Headers:</h4>
+      <pre><code>Authorization: Bearer &lt;token&gt;</code></pre>
+
+      <h4>Request:</h4>
+      <pre><code>{
+  "orderStatus": "in_transit"
+}</code></pre>
+
+      <h4>Response (Success - 200 OK):</h4>
+      <pre><code>{
+  "success": true,
+  "data": {
+    "orderStatus": {
+      "orderStatus": "in_transit",
+      "orderId": "ord-123456",
+      "timeStamp": "2025-04-26T17:45:00Z"
+    }
+  }
+}</code></pre>
+    </div>
+
+    <div class="endpoint">
+      <div>
+        <span class="method get">GET</span>
+        <strong>/api/orders/:id/status</strong>
+      </div>
+      <p><strong>Description:</strong> Get the status history of an order</p>
+      <h4>Headers:</h4>
+      <pre><code>Authorization: Bearer &lt;token&gt;</code></pre>
+
+      <h4>Response (Success - 200 OK):</h4>
+      <pre><code>{
+  "success": true,
+  "data": {
+    "statusHistory": [
+      {
+        "orderStatus": "pending",
+        "orderId": "ord-123456",
+        "timeStamp": "2025-04-26T15:30:00Z"
+      },
+      {
+        "orderStatus": "confirmed",
+        "orderId": "ord-123456",
+        "timeStamp": "2025-04-26T16:15:00Z"
+      },
+      {
+        "orderStatus": "in_transit",
+        "orderId": "ord-123456",
+        "timeStamp": "2025-04-26T17:45:00Z"
+      }
+    ]
+  }
+}</code></pre>
+    </div>
+
+    <div class="endpoint">
+      <div>
+        <span class="method get">GET</span>
+        <strong>/api/orders/track/:trackingId</strong>
+      </div>
+      <p>
+        <strong>Description:</strong> Track an order by tracking ID (does not
+        require authentication)
+      </p>
+
+      <h4>Response (Success - 200 OK):</h4>
+      <pre><code>{
+  "success": true,
+  "data": {
+    "trackingId": "TRK-123456",
+    "orderStatus": "in_transit",
+    "lastUpdated": "2025-04-26T17:45:00Z",
+    "estimatedDelivery": "2025-04-26T19:00:00Z"
+  }
+}</code></pre>
+    </div>
+
+    <h3>2.3 Cylinder Management Endpoints</h3>
+
+    <div class="endpoint">
+      <div>
+        <span class="method get">GET</span>
+        <strong>/api/cylinders</strong>
+      </div>
+      <p><strong>Description:</strong> Get available cylinders</p>
+
+      <h4>Query Parameters:</h4>
+      <pre><code>size=5kg&type=Standard</code></pre>
+
+      <h4>Response (Success - 200 OK):</h4>
+      <pre><code>{
+  "success": true,
+  "data": {
+    "cylinders": [
+      {
+        "id": "cyl-123456",
+        "size": "5kg",
+        "type": "Standard",
+        "price": 4000,
+        "image_url": "https://example.com/cylinder1.jpg",
+        "available": true
+      },
+      {
+        "id": "cyl-123457",
+        "size": "5kg",
+        "type": "Premium",
+        "price": 4500,
+        "image_url": "https://example.com/cylinder2.jpg",
+        "available": true
+      }
+    ]
+  }
+}</code></pre>
+    </div>
+
+    <h2>3. Technical Specifications</h2>
+
+    <h3>3.1 Order Status Types</h3>
+    <ul>
+      <li><code>pending</code> - Initial state when order is created</li>
+      <li><code>confirmed</code> - Order has been confirmed by the system</li>
+      <li><code>processing</code> - Order is being processed</li>
+      <li><code>ready_for_pickup</code> - Cylinders are ready for pickup</li>
+      <li><code>in_transit</code> - Order is in transit for delivery</li>
+      <li><code>delivered</code> - Order has been delivered</li>
+      <li><code>cancelled</code> - Order has been cancelled</li>
+      <li><code>completed</code> - Order has been completed</li>
+    </ul>
+
+    <h3>3.2 Order Types</h3>
+    <ul>
+      <li><code>cylinder_refill</code> - For refilling existing cylinders</li>
+      <li><code>cylinder_purchase</code> - For purchasing new cylinders</li>
+    </ul>
+
+    <h3>3.3 Error Handling</h3>
+    <p>Standard error response format:</p>
+    <pre><code>{
+  "success": false,
+  "error": {
+    "code": "ERROR_CODE",
+    "message": "Human-readable message",
+    "details": {
+      "field1": "Error detail for field1",
+      "field2": "Error detail for field2"
+    }
+  }
+}</code></pre>
+
+    <h3>Common Error Codes:</h3>
+    <ul>
+      <li><code>VALIDATION_ERROR</code> - Invalid input data</li>
+      <li><code>ORDER_NOT_FOUND</code> - Order not found</li>
+      <li><code>CYLINDER_NOT_FOUND</code> - Requested cylinder not found</li>
+      <li><code>INSUFFICIENT_STOCK</code> - Not enough cylinders in stock</li>
+      <li><code>UNAUTHORIZED</code> - User not authorized for this action</li>
+      <li>
+        <code>INVALID_ORDER_STATUS</code> - Invalid order status transition
+      </li>
+      <li><code>PAYMENT_FAILED</code> - Payment processing failed</li>
+    </ul>
+
+    <h3>3.4 Database Relationships</h3>
+    <p>The following relationships exist between database tables:</p>
+    <ul>
+      <li>One user can have many orders (one-to-many)</li>
+      <li>One order can have many cylinder orders (one-to-many)</li>
+      <li>One order can have multiple locations (one-to-many)</li>
+      <li>One order can have multiple status updates (one-to-many)</li>
+    </ul>
+
+    <h3>3.5 Security Requirements</h3>
+    <ul>
+      <li>All endpoints except tracking require authentication</li>
+      <li>
+        Order status updates can only be performed by authorized personnel
+        (admin, driver)
+      </li>
+      <li>Users can only access their own orders</li>
+      <li>User authentication uses JWT tokens</li>
+    </ul>
+
+    <h3>3.6 Future Considerations</h3>
+    <ul>
+      <li>Integration with payment gateways</li>
+      <li>Real-time order tracking using WebSockets</li>
+      <li>Push notifications for order status updates</li>
+      <li>Scheduled deliveries and recurring orders</li>
+    </ul>
+  </body>
+</html>
